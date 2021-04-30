@@ -1,0 +1,5 @@
+#/bin/bash
+
+rosrun map_server map_saver -f map map:=/projected_map
+rosrun octomap_server octomap_saver octomap.bt
+rosservice call /lio_sam/save_everything "{}"
