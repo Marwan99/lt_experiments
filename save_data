@@ -1,5 +1,16 @@
 #/bin/bash
 
-rosrun map_server map_saver -f map map:=/projected_map
+echo "Reseting ocotomap..."
+rosservice call /occupancy_proj/occupancy_proj/reset "{}"
+
+echo "Waiting for ocotmap to update..."
+sleep 12
+
+echo "Saving occupancy grid..."
+rosrun map_server map_saver -f map map:=/occupancy_proj/projected_map
+
+echo "Saving full octomap..."
 rosrun octomap_server octomap_saver octomap.bt
+
+echo "Saving graph_data..."
 rosservice call /lio_sam/save_everything "{}"
