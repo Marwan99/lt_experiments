@@ -1,0 +1,8 @@
+#/bin/bash
+
+for d in */ ; do
+    if [ "$d" != "results/" ]; then
+      echo "${d%/}"
+      convert "$d"map.pgm -rotate 180 results/"${d%/}".pdf
+    fi
+done
