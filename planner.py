@@ -1,114 +1,41 @@
 import cv2
 import numpy as np
-from operator import itemgetter
-from operator import attrgetter
-import math
+
+from pathfinding.core.diagonal_movement import DiagonalMovement
+from pathfinding.core.grid import Grid
+from pathfinding.finder.a_star import AStarFinder
 
 
-def heuristic(node, goal):
-    D = 1
-    D2 = math.sqrt(2)
-    dx = abs(node[0] - goal[0])
-    dy = abs(node[1] - goal[1])
-    return D * (dx + dy) + (D2 - 2 * D) * min(dx, dy)
+def plan_and_plot(start, end, finder, grid, colour):
+    if not start.walkable:
+        print("Start is occupied")
+        output[start.y][start.x] = colour
+        cv2.imshow('Map + path', output)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        exit()
+
+    if not end.walkable:
+        print("Goal is occupied")
+        output[start.y][start.x] = colour
+        cv2.imshow('Map + path', output)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        exit()
+
+    path, runs = finder.find_path(start, end, grid)
+
+    for pixel in path:
+        output[pixel[1]][pixel[0]] = colour
 
 
-class Node():
-    def __init__(self, parent=None, position=None):
-        self.parent = parent
-        self.position = position
+# session = 'wed_teach'
+session = 'repeat_0'
+# session = 'repeat_2'
+# session = 'repeat_4'
+# session = 'repeat_6'
 
-        self.g = 0
-        self.h = 0
-        self.f = 0
-
-    def __eq__(self, other):
-        return self.position == other.position
-
-
-def astar(maze, start, end, explored):
-    """Returns a list of tuples as a path from the given start to the given end in the given maze"""
-    # Create start and end node
-    start_node = Node(None, start)
-    end_node = Node(None, end)
-
-    # Initialize both open and closed list
-    open_list = [start_node]
-    closed_list = []
-
-    # Loop until you find the end
-    while len(open_list) > 0:
-
-        # Get the node with min f value
-        open_list.sort(key=lambda x: (x.f, x.g))
-        current_node = open_list[0]
-
-        # Pop current off open list, add to closed list
-        open_list.pop(0)
-        closed_list.append(current_node)
-
-        # Found the goal
-        if current_node == end_node:
-            path = []
-            current = current_node
-            while current is not None:
-                path.append(current.position)
-                current = current.parent
-            return path[::-1]  # Return reversed path
-
-        # Adjacent squares
-        for neighbour in [(0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]:
-            # for neighbour in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
-
-            # Get node position
-            node_position = (
-                current_node.position[0] + neighbour[0],
-                current_node.position[1] + neighbour[1])
-
-            # Make sure within range
-            row, col = maze.shape
-            if node_position[1] > (col-1) or node_position[1] < 0 or node_position[0] < 0 or node_position[0] > (row - 1):
-                continue
-
-            # if pixel is not white aka occupied
-            if maze[node_position[0]][node_position[1]] != 255:
-                continue
-
-            new_node = Node(current_node, node_position)
-
-            # Check if closed
-            closed = False
-            for closed_node in closed_list:
-                if new_node == closed_node:
-                    closed = True
-            if closed:
-                continue
-
-            # Calculate the f, g, and h values
-            new_node.g = current_node.g + 1
-            # new_node.h = math.sqrt(((new_node.position[0] - end_node.position[0]) **
-            #                         2) + ((new_node.position[1] - end_node.position[1]) ** 2))
-            new_node.h = heuristic(new_node.position, end_node.position)
-            new_node.f = new_node.g + new_node.h
-
-            # Child is already in the open list
-            opened = False
-            for index, open_node in enumerate(open_list):
-                if new_node == open_node:
-                    opened = True
-                    if (new_node.g < open_node.g):
-                        open_list[index] = new_node
-
-            if not opened:
-                open_list.append(new_node)
-
-            explored[node_position[0]][node_position[1]] = new_node.g+10
-            cv2.imshow('exploring map', explored)
-
-        # cv2.waitKey(0)
-
-
-map = cv2.imread('/home/marwan/fyp/lt_experiments/d_2_n/wed_teach/map.pgm')
+map = cv2.imread('/home/marwan/fyp/lt_experiments/d_2_n/' + session + '/map.pgm')
 
 inverted_map = cv2.bitwise_not(map)
 
@@ -116,7 +43,6 @@ inverted_map = cv2.bitwise_not(map)
 kernel = np.ones((6, 6), np.uint8)
 
 inflated_map = cv2.dilate(inverted_map, kernel, iterations=1)
-
 inflated_map = cv2.bitwise_not(inflated_map)
 
 delta_zone = map - inflated_map
@@ -148,33 +74,28 @@ map_gray = cv2.cvtColor(output, cv2.COLOR_BGR2GRAY)
                                   128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
 # cv2.imshow('Binary map', bin_map)
 
-# row, col
-# y, x
 
-start = (290, 415)
-# start = (363, 397)
-goal = (360, 235)
+# Path planning
+grid = Grid(matrix=bin_map)
+finder = AStarFinder(diagonal_movement=DiagonalMovement.always)
 
-if bin_map[start[0]][start[1]] == 0:
-    print("Start is occupied")
-    exit()
+# Path 0
+print("Path 0...")
+start = grid.node(485, 335)
+end = grid.node(336, 347)
+plan_and_plot(start, end, finder, grid,[0, 150, 0])
+print("Done")
 
-if bin_map[goal[0]][goal[1]] == 0:
-    print("Goal is occupied")
-    exit()
-
-output[start[0]][start[1]] = [0, 150, 0]
-output[goal[0]][goal[1]] = [0, 150, 0]
-# cv2.imshow('Map + path', output)
-
-path = astar(bin_map, start, goal, bin_map)
-
-for pixel in path:
-    output[pixel[0]][pixel[1]] = [0, 150, 0]
-
+# Path 1
+print("Path 1...")
+grid.cleanup()
+start = grid.node(295, 400)
+end = grid.node(450, 395)
+plan_and_plot(start, end, finder, grid, [150, 0, 0])
+print("Done")
 
 cv2.imshow('Map + path', output)
-
+cv2.imwrite('/home/marwan/fyp/lt_experiments/d_2_n/results/' + session + '_path.jpg', output)
 
 cv2.waitKey(0)
 cv2.destroyAllWindows()
